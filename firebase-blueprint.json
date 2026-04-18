@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about a patient or therapist",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["patient", "therapist"] },
+        "name": { "type": "string" },
+        "designation": { "type": "string" },
+        "availabilityStatus": { "type": "string", "enum": ["available", "offline", "busy"] },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "email", "role", "name"]
+    },
+    "Prescription": {
+      "title": "Prescription",
+      "description": "Medical prescription issued by a therapist to a patient",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "therapistId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "therapistId", "content", "createdAt"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled session between a patient and a therapist",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "therapistId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["video", "home-visit"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        }
+      },
+      "required": ["patientId", "therapistId", "status", "date", "type"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message sent in a chat room",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "text", "createdAt"]
+    },
+    "ChatRoom": {
+      "title": "Chat Room",
+      "description": "A direct chat between a patient and a therapist",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/prescriptions/{prescriptionId}": {
+      "schema": "Prescription",
+      "description": "Medical prescriptions"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Patient appointments"
+    },
+    "/chats/{chatId}": {
+      "schema": "ChatRoom",
+      "description": "Chat conversations"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a chat"
+    }
+  }
+}

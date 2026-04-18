@@ -1,0 +1,10 @@
+{
+  "name": "HealSync Medical Portal",
+  "description": "A comprehensive healthcare platform for therapist-patient interactions, featuring video consultations, prescription tracking, and real-time chat.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

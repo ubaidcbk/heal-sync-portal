@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isMemberOfChat(chatId) {
+      return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    // --- User Rules ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) 
+        && incoming().uid == request.auth.uid
+        && incoming().role in ['patient', 'therapist']
+        && incoming().name is string
+        && incoming().name.size() < 100;
+      allow update: if isOwner(userId)
+        && incoming().uid == existing().uid
+        && incoming().role == existing().role
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoURL', 'availabilityStatus', 'designation', 'phone', 'location']));
+    }
+
+    // --- Appointment Rules ---
+    match /appointments/{appointmentId} {
+      allow list: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid);
+      allow get: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid);
+      
+      allow create: if isSignedIn() 
+        && incoming().patientId == request.auth.uid 
+        && incoming().status == 'pending'
+        && isValidId(incoming().therapistId);
+      
+      allow update: if isSignedIn() 
+        && (existing().patientId == request.auth.uid || existing().therapistId == request.auth.uid)
+        && (
+          // Therapist confirming or completing
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status in ['confirmed', 'completed', 'cancelled'])
+          ||
+          // Patient updating location or cancelling
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'location']) && incoming().status == 'cancelled')
+        );
+    }
+
+    // --- Prescription Rules ---
+    match /prescriptions/{prescriptionId} {
+      allow list: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid);
+      allow get: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid);
+      
+      allow create: if isSignedIn() 
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'therapist'
+        && incoming().therapistId == request.auth.uid
+        && incoming().createdAt == request.time;
+    }
+
+    // --- Chat Rules ---
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn() && request.auth.uid in incoming().participants;
+      allow update: if isSignedIn() && request.auth.uid in existing().participants
+        && incoming().participants == existing().participants;
+      
+      match /messages/{messageId} {
+        allow list: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isSignedIn() 
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && incoming().senderId == request.auth.uid
+          && incoming().createdAt == request.time;
+      }
+    }
+  }
+}
